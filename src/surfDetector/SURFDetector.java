@@ -10,10 +10,9 @@ import org.opencv.ml.CvSVMParams;
 import java.io.File;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Vector;
 
-/**
- * Created by Kinath on 8/6/2016.
- */
+
 public class SURFDetector {
 
     public static void main(String[] args) {
@@ -33,13 +32,13 @@ public class SURFDetector {
         System.out.println(lib.getAbsolutePath());
         System.load(lib.getAbsolutePath());
 
-        String bookObject = "images//cs.jpg";
-        String bookScene = "images//setofgames.jpg";
+        String gameToTest = "images//cs.jpg";
+        String setOfGames = "images//setofgames.jpg";
 
         System.out.println("Started....");
         System.out.println("Loading images...");
-        Mat objectImage = Highgui.imread(bookObject, Highgui.CV_LOAD_IMAGE_COLOR);
-        Mat sceneImage = Highgui.imread(bookScene, Highgui.CV_LOAD_IMAGE_COLOR);
+        Mat objectImage = Highgui.imread(gameToTest, Highgui.CV_LOAD_IMAGE_COLOR);
+        Mat sceneImage = Highgui.imread(setOfGames, Highgui.CV_LOAD_IMAGE_COLOR);
         
         MatOfKeyPoint objectKeyPoints = new MatOfKeyPoint();
         FeatureDetector featureDetector = FeatureDetector.create(FeatureDetector.SURF);
@@ -94,7 +93,7 @@ public class SURFDetector {
         }
 
         if (goodMatchesList.size() >= 7) {
-            System.out.println("Object Found!!!");
+            System.out.println("Game Found!!!");
 
             List<KeyPoint> objKeypointlist = objectKeyPoints.toList();
             List<KeyPoint> scnKeypointlist = sceneKeyPoints.toList();
@@ -125,7 +124,7 @@ public class SURFDetector {
             System.out.println("Transforming object corners to scene corners...");
             Core.perspectiveTransform(obj_corners, scene_corners, homography);
 
-            Mat img = Highgui.imread(bookScene, Highgui.CV_LOAD_IMAGE_COLOR);
+            Mat img = Highgui.imread(setOfGames, Highgui.CV_LOAD_IMAGE_COLOR);
 
             Core.line(img, new Point(scene_corners.get(0, 0)), new Point(scene_corners.get(1, 0)), new Scalar(0, 255, 0), 4);
             Core.line(img, new Point(scene_corners.get(1, 0)), new Point(scene_corners.get(2, 0)), new Scalar(0, 255, 0), 4);
@@ -145,41 +144,38 @@ public class SURFDetector {
             System.out.println("Object Not Found");
         }
         
+        System.out.println("Starting SVM... ");
         //SVM
         
-		Mat classes = new Mat();
-        Mat trainingData = new Mat();
+    	Mat classes = new Mat();      
         Mat trainingImages = new Mat();
-        Mat trainingLabels = new Mat();
-        CvSVM clasificador;
-        String path="images//cs.jpg";
+        Mat trainingLabels = new Mat();       
+        CvSVM clasificator;
+        
+        String path="images//cs";    
 		for (File file : new File(path).listFiles()) {
             Mat img=new Mat();   
             Mat con = Highgui.imread(path+"\\"+file.getName(),Highgui.CV_LOAD_IMAGE_GRAYSCALE);
             con.convertTo(img, CvType.CV_32FC1,1.0/255.0);
-
-            img.reshape(1, 1);
+            img.reshape(1,1);
             trainingImages.push_back(img);
-            trainingLabels.push_back(Mat.ones(new Size(1, 75), CvType.CV_32FC1));
+            trainingLabels.push_back(Mat.ones(new Size(1, 180), CvType.CV_32FC1));                       
+            
         }
-        System.out.println("divide");
-        path="images//setofgames.jpg";
+        System.out.println("second game");
+        path="images//dota2";
         for (File file : new File(path).listFiles()) {
-                Mat img=new Mat();
-                Mat m=new Mat(new Size(640,480),CvType.CV_32FC1);
-                Mat con = Highgui.imread(file.getAbsolutePath(),Highgui.CV_LOAD_IMAGE_GRAYSCALE);
-
+                Mat img=new Mat();               
+                Mat con = Highgui.imread(path+"\\"+file.getName(),Highgui.CV_LOAD_IMAGE_GRAYSCALE);
                 con.convertTo(img, CvType.CV_32FC1,1.0/255.0);
-                img.reshape(1, 1);
+                img.reshape(1,1);
                 trainingImages.push_back(img);
-
-                trainingLabels.push_back(Mat.zeros(new Size(1, 75), CvType.CV_32FC1));
-
+                trainingLabels.push_back(Mat.zeros(new Size(1, 180), CvType.CV_32FC1));  
         }
 
         trainingLabels.copyTo(classes);        
         CvSVMParams params = new CvSVMParams();
-        params.set_kernel_type(CvSVM.RBF);
+        params.set_kernel_type(CvSVM.LINEAR);
         /*
          * Type of a SVM kernel. Possible values are:
 			LINEAR Linear kernel. No mapping is done, linear discrimination (or regression) is done in the original feature space. It is the fastest option. K(x_i, x_j) = x_i^T x_j.
@@ -188,18 +184,20 @@ public class SURFDetector {
 			SIGMOID Sigmoid kernel: K(x_i, x_j) = \tanh(\gamma x_i^T x_j + coef0).
          */
         CvType.typeToString(trainingImages.type());
-        CvSVM svm=new CvSVM();
-        clasificador = new CvSVM(trainingImages,classes, new Mat(), new Mat(), params);
-
-        clasificador.save("images//svm.xml");
+        System.out.println("trainingImg "+ trainingImages.size() + " classes: "+ classes.size());
+        
+        clasificator = new CvSVM(trainingImages,classes, new Mat(), new Mat(), params);
+        clasificator.save("images//svm.xml");
+        
         Mat out=new Mat();
-
-        clasificador.load("mages//svm.xml");
+        clasificator.load("images//svm.xml");
         Mat sample=Highgui.imread("images//cs.jpg",Highgui.CV_LOAD_IMAGE_GRAYSCALE);
-
         sample.convertTo(out, CvType.CV_32FC1,1.0/255.0);               
-        out.reshape(1, 75);
-        System.out.println(clasificador.predict(out));
+        out.reshape(1,1);               
+        //Mat res = new Mat(320,1,CvType.CV_32FC1);
+        //res.push_back(out);
+        System.out.println("out desc "+out.toString());
+        System.out.println("classificator pred "+clasificator.predict(out));
 
         System.out.println("Ended....");
     }
